@@ -1,0 +1,48 @@
+name: Rails
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+jobs:
+  build:
+    name: rails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: vendor/bundle
+          key: bundle-${{ hashFiles('**/Gemfile.lock') }}
+      - name: Setup Ruby version
+        uses: actions/setup-ruby@master
+        with:
+          ruby-version: 3.0.2
+      - name: Install dependent libralies
+        run: sudo apt-get install libmysqlclient-dev
+      - name: bundle install
+        run: |
+          gem install bundler --no-document -v $(grep "BUNDLED WITH" -1 Gemfile.lock | tail -n 1)
+          bundle config set deployment 'true'
+          bundle install --jobs 4 --retry 3
+      - name: Setup Database
+        run: |
+          cp config/database.ci.yml config/database.yml
+          sudo /etc/init.d/mysql start
+          bundle exec rails db:setup
+        env:
+          RAILS_ENV: test
+      - name: Run rspec
+        run: bundle exec rspec
+      - name: Run rubocop
+        run: bundle exec rubocop
+      - name: Run Danger
+        run: bundle exec danger --fail-on-errors=true
+        env:
+          RAILS_ENV: test
+          DANGER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,43 @@
+version: "3"
+services:
+  mail:
+    image: schickling/mailcatcher:latest
+    ports:
+      - "1026:1025"
+      - "1081:1080"
+
+  db:
+    platform: linux/x86_64
+    image: mysql:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    ports:
+      - "3307:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - db-data:/var/lib/mysql
+
+  app: &app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: bundle exec foreman start -f Procfile.dev
+    volumes:
+      - .:/opt/app
+      - app-bundle:/usr/local/bundle
+    ports:
+      - "3001:3000"
+      - "3036:3035"
+    depends_on:
+      - db
+      - mail
+    environment:
+      APP_DATABASE_HOST: db
+      APP_DATABASE_USERNAME: root
+      APP_DATABASE_PASSWORD: password
+      EDITOR: vi
+
+volumes:
+  db-data:
+  app-bundle:
