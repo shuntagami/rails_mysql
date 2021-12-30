@@ -1,0 +1,37 @@
+name: Rails
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+jobs:
+  build:
+    name: rails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and startup containers
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker-compose build
+          docker-compose up -d mysql
+      - name: install
+        run: |
+          docker-compose run --rm app bundle install
+          docker-compose run --rm app yarn install
+      - name: setup db
+        run: |
+          docker-compose run --rm app bundle exec rake db:prepare
+      - name: lint
+        run: |
+          docker-compose run --rm app bundle exec rubocop
+          docker-compose run --rm app yarn lint
+      - name: test
+        run: |
+          docker-compose run --rm app bundle exec rspec
